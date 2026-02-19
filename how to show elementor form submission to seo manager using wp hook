@@ -1,71 +1,4 @@
 // this function give wpseo_manager role access to Elementor Form Submissions
-function allow_wpseo_manager_elementor_forms() {
-    $role = get_role('wpseo_manager');
-    if ($role) {
-        // Elementor ke forms ke liye yeh caps zaroori hain, don't manuplate it
-        $role->add_cap('manage_options'); // to view Elementor submissions UI
-        $role->add_cap('elementor_manage_forms'); // Elementor Pro forms API
-        $role->add_cap('export'); // for CSV export
-    }
-}
-add_action('init', 'allow_wpseo_manager_elementor_forms');
-/* this function block direct URL access for Elementor pages except submissions */
-function block_elementor_pages_for_wpseo_manager() {
-    if ( current_user_can('wpseo_manager') && is_admin() ) {
-        if ( isset($_GET['page']) ) {
-            $allowed = ['e-form-submissions'];
-            $page    = sanitize_text_field($_GET['page']);
-
-            if ( (strpos($page, 'elementor') !== false || strpos($page, 'e-') === 0) && ! in_array($page, $allowed, true) ) {
-                wp_die( __('Sorry, you are not allowed to access this page.') );
-            }
-        }
-    }
-}
-add_action('admin_init', 'block_elementor_pages_for_wpseo_manager');
-/* this function Hide all other Elementor submenus for SEO Manager */
-function hide_elementor_submenus_for_wpseo_manager() {
-    if ( !current_user_can('wpseo_manager') ) {
-        return; // Admin unaffected
-    }
-
-    global $submenu;
-    $parent = 'elementor';
-    $allowed = ['e-form-submissions'];
-
-    if ( isset( $submenu[$parent] ) ) {
-        foreach ( $submenu[$parent] as $key => $item ) {
-            $slug = $item[2];
-            if ( ! in_array( $slug, $allowed, true ) ) {
-                unset( $submenu[$parent][$key] );
-            }
-        }
-    }
-}
-add_action('admin_menu', 'hide_elementor_submenus_for_wpseo_manager', 999);
-
-/* yah code dosry plugin ka code hide kara ga */
-function block_direct_access_for_wpseo_manager() {
-    if ( current_user_can('wpseo_manager') && is_admin() ) {
-        $blocked_pages = [
-            'wp_file_manager',
-            'updraftplus',
-            'wp-mail-smtp',      // WP Mail SMTP
-            'ai1wm_export',      // All-in-One WP Migration
-        ];
-
-        if ( isset($_GET['page']) && in_array($_GET['page'], $blocked_pages, true) ) {
-            wp_die(__('Sorry, you are not allowed to access this page.'));
-        }
-    }
-}
-add_action('admin_init', 'block_direct_access_for_wpseo_manager');
-
-
-
-
-/* NEW UPDATED CODE WITH SEO EDITOR AND EDITOR ROLE */
-
 /* ---------------------------------------------------------
    1) Allow Elementor Form Submissions for 3 roles:
       - wpseo_manager
@@ -140,7 +73,8 @@ add_action('admin_menu', 'hide_elementor_submenus_for_selected_roles', 999);
 
 
 /* ---------------------------------------------------------
-   4) Block other plugin pages from SEO roles + Editor (WP File Manager + Updraft + SMTP + Migration)
+   4) Block other plugin pages from SEO roles + Editor
+      (WP File Manager + Updraft + SMTP + Migration)
 ------------------------------------------------------------ */
 function block_plugin_pages_for_selected_roles() {
 
@@ -161,8 +95,6 @@ function block_plugin_pages_for_selected_roles() {
 }
 add_action('admin_init', 'block_plugin_pages_for_selected_roles');
 
-
-/* this code hide elementor templates to seo manager and seo editor and edtior */
 /*--------------------------------------------------------------
 # NEW SECTION: Block Elementor Templates for SEO Roles
 # (SEO Manager, SEO Editor, Editor)
@@ -204,5 +136,33 @@ function hide_elementor_templates_menu_for_restricted_roles() {
 }
 add_action('admin_menu', 'hide_elementor_templates_menu_for_restricted_roles', 999);
 
+/* this code give access to seo manager, seo editor and editor use yoast seo fully */
+// Give full Yoast SEO access to SEO Editor & Editor roles
+function give_yoast_full_access_to_roles() {
+    $roles = ['seo_editor', 'editor']; // roles to give Yoast access
 
-/* this code give yoast full access to seo manager and seo edutor and editor just yoast */
+    $caps = [
+        'wpseo_bulk_edit',
+        'wpseo_edit_advanced_metadata',
+        'wpseo_edit_page',
+        'wpseo_edit_post',
+        'wpseo_manage_options',
+        'wpseo_manage_redirects',
+        'wpseo_read_seo_analysis',
+        'wpseo_read_redirects',
+        'manage_options' // required for full Yoast access
+    ];
+
+    foreach ($roles as $role_name) {
+        $role = get_role($role_name);
+
+        if ($role) {
+            foreach ($caps as $cap) {
+                $role->add_cap($cap);
+            }
+        }
+    }
+}
+add_action('init', 'give_yoast_full_access_to_roles');
+
+/* code end */
