@@ -1,0 +1,208 @@
+// this function give wpseo_manager role access to Elementor Form Submissions
+function allow_wpseo_manager_elementor_forms() {
+    $role = get_role('wpseo_manager');
+    if ($role) {
+        // Elementor ke forms ke liye yeh caps zaroori hain, don't manuplate it
+        $role->add_cap('manage_options'); // to view Elementor submissions UI
+        $role->add_cap('elementor_manage_forms'); // Elementor Pro forms API
+        $role->add_cap('export'); // for CSV export
+    }
+}
+add_action('init', 'allow_wpseo_manager_elementor_forms');
+/* this function block direct URL access for Elementor pages except submissions */
+function block_elementor_pages_for_wpseo_manager() {
+    if ( current_user_can('wpseo_manager') && is_admin() ) {
+        if ( isset($_GET['page']) ) {
+            $allowed = ['e-form-submissions'];
+            $page    = sanitize_text_field($_GET['page']);
+
+            if ( (strpos($page, 'elementor') !== false || strpos($page, 'e-') === 0) && ! in_array($page, $allowed, true) ) {
+                wp_die( __('Sorry, you are not allowed to access this page.') );
+            }
+        }
+    }
+}
+add_action('admin_init', 'block_elementor_pages_for_wpseo_manager');
+/* this function Hide all other Elementor submenus for SEO Manager */
+function hide_elementor_submenus_for_wpseo_manager() {
+    if ( !current_user_can('wpseo_manager') ) {
+        return; // Admin unaffected
+    }
+
+    global $submenu;
+    $parent = 'elementor';
+    $allowed = ['e-form-submissions'];
+
+    if ( isset( $submenu[$parent] ) ) {
+        foreach ( $submenu[$parent] as $key => $item ) {
+            $slug = $item[2];
+            if ( ! in_array( $slug, $allowed, true ) ) {
+                unset( $submenu[$parent][$key] );
+            }
+        }
+    }
+}
+add_action('admin_menu', 'hide_elementor_submenus_for_wpseo_manager', 999);
+
+/* yah code dosry plugin ka code hide kara ga */
+function block_direct_access_for_wpseo_manager() {
+    if ( current_user_can('wpseo_manager') && is_admin() ) {
+        $blocked_pages = [
+            'wp_file_manager',
+            'updraftplus',
+            'wp-mail-smtp',      // WP Mail SMTP
+            'ai1wm_export',      // All-in-One WP Migration
+        ];
+
+        if ( isset($_GET['page']) && in_array($_GET['page'], $blocked_pages, true) ) {
+            wp_die(__('Sorry, you are not allowed to access this page.'));
+        }
+    }
+}
+add_action('admin_init', 'block_direct_access_for_wpseo_manager');
+
+
+
+
+/* NEW UPDATED CODE WITH SEO EDITOR AND EDITOR ROLE */
+
+/* ---------------------------------------------------------
+   1) Allow Elementor Form Submissions for 3 roles:
+      - wpseo_manager
+      - wpseo_editor
+      - editor
+------------------------------------------------------------ */
+function allow_selected_roles_elementor_forms() {
+
+    $roles = ['wpseo_manager', 'wpseo_editor', 'editor'];
+
+    foreach ($roles as $role_key) {
+        $role = get_role($role_key);
+
+        if ($role) {
+            // Elementor Form Submissions ke liye required caps
+            $role->add_cap('manage_options');
+            $role->add_cap('elementor_manage_forms');
+            $role->add_cap('export');
+        }
+    }
+}
+add_action('init', 'allow_selected_roles_elementor_forms');
+
+
+/* ---------------------------------------------------------
+   2) Block all Elementor pages except Form Submissions for the 3 roles
+------------------------------------------------------------ */
+function block_elementor_pages_for_selected_roles() {
+
+    if ( (current_user_can('wpseo_manager') || current_user_can('wpseo_editor') || current_user_can('editor'))
+        && is_admin() ) {
+
+        if ( isset($_GET['page']) ) {
+
+            $allowed = ['e-form-submissions'];   // Only this page allowed
+            $page    = sanitize_text_field($_GET['page']);
+
+            if ( (strpos($page, 'elementor') !== false || strpos($page, 'e-') === 0)
+                && ! in_array($page, $allowed, true) ) {
+
+                wp_die(__('Sorry, you are not allowed to access this page.'));
+            }
+        }
+    }
+}
+add_action('admin_init', 'block_elementor_pages_for_selected_roles');
+
+
+/* ---------------------------------------------------------
+   3) Hide Elementor Sidebar Submenus (except submissions) for SEO roles + Editor
+------------------------------------------------------------ */
+function hide_elementor_submenus_for_selected_roles() {
+
+    if ( !(current_user_can('wpseo_manager') || current_user_can('wpseo_editor') || current_user_can('editor')) ) {
+        return; // Admin unaffected
+    }
+
+    global $submenu;
+    $parent = 'elementor';
+    $allowed = ['e-form-submissions'];
+
+    if ( isset($submenu[$parent]) ) {
+        foreach ($submenu[$parent] as $key => $item) {
+            $slug = $item[2];
+            if ( ! in_array($slug, $allowed, true) ) {
+                unset($submenu[$parent][$key]);
+            }
+        }
+    }
+}
+add_action('admin_menu', 'hide_elementor_submenus_for_selected_roles', 999);
+
+
+/* ---------------------------------------------------------
+   4) Block other plugin pages from SEO roles + Editor (WP File Manager + Updraft + SMTP + Migration)
+------------------------------------------------------------ */
+function block_plugin_pages_for_selected_roles() {
+
+    if ( (current_user_can('wpseo_manager') || current_user_can('wpseo_editor') || current_user_can('editor'))
+        && is_admin() ) {
+
+        $blocked_pages = [
+            'wp_file_manager',
+            'updraftplus',
+            'wp-mail-smtp',
+            'ai1wm_export',
+        ];
+
+        if ( isset($_GET['page']) && in_array($_GET['page'], $blocked_pages, true) ) {
+            wp_die(__('Sorry, you are not allowed to access this page.'));
+        }
+    }
+}
+add_action('admin_init', 'block_plugin_pages_for_selected_roles');
+
+
+/* this code hide elementor templates to seo manager and seo editor and edtior */
+/*--------------------------------------------------------------
+# NEW SECTION: Block Elementor Templates for SEO Roles
+# (SEO Manager, SEO Editor, Editor)
+--------------------------------------------------------------*/
+
+/* 1) BLOCK DIRECT URL ACCESS */
+function block_elementor_templates_for_restricted_roles() {
+
+    // Roles jinko Elementor Templates hide karna hai
+    $restricted_roles = ['wpseo_manager', 'seo_editor', 'editor'];
+
+    foreach ($restricted_roles as $role) {
+        if ( current_user_can($role) && is_admin() ) {
+
+            if ( isset($_GET['post_type']) && $_GET['post_type'] === 'elementor_library' ) {
+                wp_die(__('Sorry, you are not allowed to access Elementor Templates.'));
+            }
+        }
+    }
+}
+add_action('admin_init', 'block_elementor_templates_for_restricted_roles');
+
+
+/* 2) HIDE Elementor Templates MENU & SUBMENU */
+function hide_elementor_templates_menu_for_restricted_roles() {
+
+    $restricted_roles = ['wpseo_manager', 'seo_editor', 'editor'];
+
+    foreach ($restricted_roles as $role) {
+        if ( current_user_can($role) ) {
+
+            // Hide main templates menu
+            remove_menu_page('edit.php?post_type=elementor_library');
+
+            // Hide Elementor -> Templates submenu
+            remove_submenu_page('elementor', 'edit.php?post_type=elementor_library');
+        }
+    }
+}
+add_action('admin_menu', 'hide_elementor_templates_menu_for_restricted_roles', 999);
+
+
+/* this code give yoast full access to seo manager and seo edutor and editor just yoast */
